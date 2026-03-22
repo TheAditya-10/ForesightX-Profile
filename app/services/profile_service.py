@@ -1,0 +1,122 @@
+from decimal import Decimal
+
+from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from shared import get_logger
+
+from app.db.models import PortfolioPosition
+from app.db.session import get_user_with_positions
+from app.schemas.profile import PortfolioPositionResponse, PortfolioResponse, RiskResponse, UpdatePortfolioRequest
+from app.services.market_client import MarketDataClient
+from app.utils.config import ProfileServiceSettings
+
+
+class ProfileServiceError(RuntimeError):
+    """Raised when profile operations fail validation or persistence checks."""
+
+
+class ProfileService:
+    def __init__(
+        self,
+        settings: ProfileServiceSettings,
+        session: AsyncSession,
+        market_client: MarketDataClient,
+    ) -> None:
+        self.settings = settings
+        self.session = session
+        self.market_client = market_client
+        self.logger = get_logger(settings.service_name, "profile")
+
+    async def get_portfolio(self, user_id: str) -> PortfolioResponse:
+        user = await get_user_with_positions(self.session, user_id)
+        if user is None:
+            raise ProfileServiceError(f"User {user_id} not found")
+
+        tickers = [position.ticker for position in user.portfolio_positions]
+        prices = await self.market_client.get_prices(tickers) if tickers else {}
+
+        holdings: list[PortfolioPositionResponse] = []
+        holdings_value = Decimal("0")
+        for position in user.portfolio_positions:
+            current_price = Decimal(str(prices.get(position.ticker, float(position.avg_price))))
+            current_value = Decimal(position.quantity) * current_price
+            pnl = (current_price - position.avg_price) * Decimal(position.quantity)
+            holdings_value += current_value
+            holdings.append(
+                PortfolioPositionResponse(
+                    ticker=position.ticker,
+                    quantity=position.quantity,
+                    avg_price=float(position.avg_price),
+                    current_price=float(current_price),
+                    current_value=float(current_value),
+                    unrealized_pnl=float(pnl),
+                )
+            )
+
+        total_value = user.cash_balance + holdings_value
+        return PortfolioResponse(
+            user_id=user.id,
+            name=user.name,
+            risk_level=user.risk_level,
+            cash=float(user.cash_balance),
+            holdings=holdings,
+            total_value=float(total_value),
+        )
+
+    async def update_portfolio(self, payload: UpdatePortfolioRequest) -> PortfolioResponse:
+        try:
+            validated = UpdatePortfolioRequest.model_validate(payload.model_dump())
+        except ValidationError as exc:
+            raise ProfileServiceError(str(exc)) from exc
+
+        user = await get_user_with_positions(self.session, validated.user_id)
+        if user is None:
+            raise ProfileServiceError(f"User {validated.user_id} not found")
+
+        trade_price = Decimal(str(await self.market_client.get_price(validated.ticker)))
+        if trade_price <= 0:
+            raise ProfileServiceError(f"Unable to value trade for {validated.ticker}")
+
+        position = next((item for item in user.portfolio_positions if item.ticker == validated.ticker), None)
+        quantity_delta = validated.quantity
+        cash_delta = trade_price * Decimal(quantity_delta)
+
+        if quantity_delta > 0 and user.cash_balance < cash_delta:
+            raise ProfileServiceError("Insufficient cash balance for requested buy")
+
+        if quantity_delta < 0:
+            if position is None or position.quantity < abs(quantity_delta):
+                raise ProfileServiceError("Cannot sell more shares than currently held")
+
+        if position is None and quantity_delta > 0:
+            position = PortfolioPosition(
+                user_id=user.id,
+                ticker=validated.ticker,
+                quantity=0,
+                avg_price=Decimal("0"),
+            )
+            self.session.add(position)
+            user.portfolio_positions.append(position)
+
+        if quantity_delta > 0 and position is not None:
+            existing_cost = position.avg_price * Decimal(position.quantity)
+            new_cost = trade_price * Decimal(quantity_delta)
+            new_quantity = position.quantity + quantity_delta
+            position.avg_price = (existing_cost + new_cost) / Decimal(new_quantity)
+            position.quantity = new_quantity
+            user.cash_balance -= cash_delta
+        elif quantity_delta < 0 and position is not None:
+            position.quantity += quantity_delta
+            user.cash_balance += abs(cash_delta)
+            if position.quantity == 0:
+                await self.session.delete(position)
+
+        await self.session.commit()
+        return await self.get_portfolio(validated.user_id)
+
+    async def get_risk(self, user_id: str) -> RiskResponse:
+        user = await get_user_with_positions(self.session, user_id)
+        if user is None:
+            raise ProfileServiceError(f"User {user_id} not found")
+        return RiskResponse(user_id=user.id, risk_level=user.risk_level)
