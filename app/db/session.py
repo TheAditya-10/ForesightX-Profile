@@ -1,14 +1,12 @@
 from decimal import Decimal
-from functools import lru_cache
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import selectinload
 
 from shared import get_logger, request_json
 
-from app.db.base import Base
 from app.db.models import PortfolioPosition, User
 from app.utils.config import ProfileServiceSettings
 
@@ -17,24 +15,27 @@ _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
+def get_engine(database_url: str) -> AsyncEngine:
+    global _engine
+    if _engine is None:
+        _engine = create_async_engine(
+            database_url,
+            pool_pre_ping=True,
+            future=True,
+        )
+    return _engine
+
+
 def get_session_factory(database_url: str) -> async_sessionmaker[AsyncSession]:
-    global _engine, _session_factory
+    global _session_factory
     if _session_factory is None:
-        _engine = create_async_engine(database_url, future=True)
-        _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
+        _session_factory = async_sessionmaker(get_engine(database_url), expire_on_commit=False)
     return _session_factory
 
 
-async def initialize_database(
-    settings: ProfileServiceSettings,
-    session_factory: async_sessionmaker[AsyncSession],
-) -> None:
-    logger = get_logger(settings.service_name, "db-init")
-    if _engine is None:
-        raise RuntimeError("Database engine not initialized")
-    async with _engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
-    logger.info("Database schema ensured")
+async def check_database_connection(database_url: str) -> None:
+    async with get_engine(database_url).connect() as connection:
+        await connection.execute(text("SELECT 1"))
 
 
 async def seed_demo_data(

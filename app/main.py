@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from shared import ServiceHealth, build_async_client, configure_logging, get_logger
 
-from app.db.session import close_database, get_session_factory, initialize_database, seed_demo_data
+from app.db.session import check_database_connection, close_database, get_session_factory, seed_demo_data
 from app.routers.profile import router as profile_router
 from app.utils.config import ProfileServiceSettings
 
@@ -24,8 +24,9 @@ async def lifespan(_: FastAPI):
 
     session_factory = get_session_factory(settings.database_url)
     http_client = build_async_client(timeout=settings.request_timeout_seconds)
-    await initialize_database(settings=settings, session_factory=session_factory)
-    await seed_demo_data(settings=settings, session_factory=session_factory, http_client=http_client)
+    await check_database_connection(settings.database_url)
+    if settings.seed_demo_data:
+        await seed_demo_data(settings=settings, session_factory=session_factory, http_client=http_client)
 
     app.state.settings = settings
     app.state.session_factory = session_factory

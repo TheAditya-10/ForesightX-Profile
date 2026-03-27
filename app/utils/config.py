@@ -1,3 +1,7 @@
+from pathlib import Path
+
+from pydantic_settings import SettingsConfigDict
+
 from shared import BaseServiceSettings
 
 
@@ -8,3 +12,11 @@ class ProfileServiceSettings(BaseServiceSettings):
     data_service_url: str = "http://data:8001"
     request_timeout_seconds: float = 8.0
     max_retries: int = 2
+    seed_demo_data: bool = False
+
+    model_config = SettingsConfigDict(
+        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
