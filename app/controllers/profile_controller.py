@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 
-from app.schemas.profile import PortfolioResponse, RiskResponse, UpdatePortfolioRequest
+from app.schemas.profile import CreateProfileRequest, CreateProfileResponse, PortfolioResponse, RiskResponse, UpdatePortfolioRequest
 from app.services.profile_service import ProfileService, ProfileServiceError
 
 
@@ -26,3 +26,9 @@ class ProfileController:
             return await self.service.get_risk(user_id=user_id)
         except ProfileServiceError as exc:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    async def create_profile(self, payload: CreateProfileRequest) -> CreateProfileResponse:
+        try:
+            return await self.service.create_profile(payload)
+        except ProfileServiceError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc

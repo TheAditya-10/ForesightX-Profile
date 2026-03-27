@@ -7,7 +7,14 @@ from shared import get_logger
 
 from app.db.models import PortfolioPosition
 from app.db.session import get_user_with_positions
-from app.schemas.profile import PortfolioPositionResponse, PortfolioResponse, RiskResponse, UpdatePortfolioRequest
+from app.schemas.profile import (
+    CreateProfileRequest,
+    CreateProfileResponse,
+    PortfolioPositionResponse,
+    PortfolioResponse,
+    RiskResponse,
+    UpdatePortfolioRequest,
+)
 from app.services.market_client import MarketDataClient
 from app.utils.config import ProfileServiceSettings
 
@@ -120,3 +127,19 @@ class ProfileService:
         if user is None:
             raise ProfileServiceError(f"User {user_id} not found")
         return RiskResponse(user_id=user.id, risk_level=user.risk_level)
+
+    async def create_profile(self, payload: CreateProfileRequest) -> CreateProfileResponse:
+        existing = await get_user_with_positions(self.session, payload.user_id)
+        if existing is not None:
+            return CreateProfileResponse(user_id=existing.id, name=existing.name, risk_level=existing.risk_level)
+
+        display_name = payload.email.split("@", maxsplit=1)[0].replace(".", " ").replace("_", " ").title() or "User"
+        user = User(
+            id=payload.user_id,
+            name=display_name,
+            risk_level="medium",
+            cash_balance=Decimal("10000.00"),
+        )
+        self.session.add(user)
+        await self.session.commit()
+        return CreateProfileResponse(user_id=user.id, name=user.name, risk_level=user.risk_level)

@@ -2,7 +2,13 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.profile_controller import ProfileController
-from app.schemas.profile import PortfolioResponse, RiskResponse, UpdatePortfolioRequest
+from app.schemas.profile import (
+    CreateProfileRequest,
+    CreateProfileResponse,
+    PortfolioResponse,
+    RiskResponse,
+    UpdatePortfolioRequest,
+)
 from app.services.market_client import MarketDataClient
 from app.services.profile_service import ProfileService
 
@@ -52,3 +58,11 @@ async def get_risk(
     controller: ProfileController = Depends(get_controller),
 ) -> RiskResponse:
     return await controller.get_risk(user_id=user_id)
+
+
+@router.post("/api/v1/profile/create", response_model=CreateProfileResponse, status_code=201)
+async def create_profile(
+    payload: CreateProfileRequest,
+    controller: ProfileController = Depends(get_controller),
+) -> CreateProfileResponse:
+    return await controller.create_profile(payload)

@@ -1,4 +1,15 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+class CreateProfileRequest(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=64)
+    email: EmailStr
+
+
+class CreateProfileResponse(BaseModel):
+    user_id: str
+    name: str
+    risk_level: str
 
 
 class PortfolioPositionResponse(BaseModel):
