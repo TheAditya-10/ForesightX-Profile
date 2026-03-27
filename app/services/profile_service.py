@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared import get_logger
 
-from app.db.models import PortfolioPosition
+from app.db.models import PortfolioPosition, User
 from app.db.session import get_user_with_positions
 from app.schemas.profile import (
     CreateProfileRequest,
