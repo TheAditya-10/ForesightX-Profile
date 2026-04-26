@@ -13,7 +13,7 @@ This service owns user-specific financial context.
 ## API
 
 - `GET /portfolio/{user_id}`
-- `POST /api/v1/profile/create`
+- `POST /profiles`
 - `POST /portfolio/update`
 - `GET /risk/{user_id}`
 - `GET /health`

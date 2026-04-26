@@ -60,9 +60,17 @@ async def get_risk(
     return await controller.get_risk(user_id=user_id)
 
 
-@router.post("/api/v1/profile/create", response_model=CreateProfileResponse, status_code=201)
+@router.post("/profiles", response_model=CreateProfileResponse, status_code=201)
 async def create_profile(
     payload: CreateProfileRequest,
     controller: ProfileController = Depends(get_controller),
 ) -> CreateProfileResponse:
     return await controller.create_profile(payload)
+
+
+@router.post("/api/v1/profile/create", response_model=CreateProfileResponse, status_code=201, include_in_schema=False)
+async def create_profile_legacy(
+    payload: CreateProfileRequest,
+    controller: ProfileController = Depends(get_controller),
+) -> CreateProfileResponse:
+    return await create_profile(payload, controller)
