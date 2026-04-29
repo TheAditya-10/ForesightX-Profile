@@ -1,5 +1,6 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, UploadFile, status
 
+from app.services.avatar_storage import AvatarStorageError
 from app.schemas.profile import (
     CreateProfileRequest,
     CreateProfileResponse,
@@ -47,6 +48,14 @@ class ProfileController:
         except ProfileServiceError as exc:
             code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_422_UNPROCESSABLE_ENTITY
             raise HTTPException(status_code=code, detail=str(exc)) from exc
+
+    async def update_profile_photo(self, user_id: str, file: UploadFile) -> ProfileResponse:
+        try:
+            return await self.service.update_profile_photo(user_id=user_id, file=file)
+        except ProfileServiceError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+        except AvatarStorageError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
     async def create_profile(self, payload: CreateProfileRequest) -> CreateProfileResponse:
         try:

@@ -14,6 +14,12 @@ class ProfileServiceSettings(BaseServiceSettings):
     request_timeout_seconds: float = 8.0
     max_retries: int = 2
     seed_demo_data: bool = False
+    aws_region: str = "us-east-1"
+    aws_s3_bucket: str | None = None
+    aws_s3_endpoint_url: str | None = None
+    aws_s3_avatar_prefix: str = "avatars"
+    aws_s3_signed_url_expires_seconds: int = 900
+    avatar_max_bytes: int = 2 * 1024 * 1024
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parents[2] / ".env",

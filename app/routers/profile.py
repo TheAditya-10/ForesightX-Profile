@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controllers.profile_controller import ProfileController
@@ -77,6 +77,15 @@ async def update_profile(
     controller: ProfileController = Depends(get_controller),
 ) -> ProfileResponse:
     return await controller.update_profile(user_id=user_id, payload=payload)
+
+
+@router.post("/profiles/{user_id}/photo", response_model=ProfileResponse)
+async def update_profile_photo(
+    user_id: str,
+    file: UploadFile = File(...),
+    controller: ProfileController = Depends(get_controller),
+) -> ProfileResponse:
+    return await controller.update_profile_photo(user_id=user_id, file=file)
 
 
 @router.post("/profiles", response_model=CreateProfileResponse, status_code=201)

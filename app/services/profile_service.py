@@ -17,6 +17,7 @@ from app.schemas.profile import (
     UpdateProfileRequest,
     UpdatePortfolioRequest,
 )
+from app.services.avatar_storage import S3AvatarStorage
 from app.services.market_client import MarketDataClient
 from app.utils.config import ProfileServiceSettings
 
@@ -36,6 +37,7 @@ class ProfileService:
         self.session = session
         self.market_client = market_client
         self.logger = get_logger(settings.service_name, "profile")
+        self.avatar_storage = S3AvatarStorage(settings)
 
     async def get_portfolio(self, user_id: str) -> PortfolioResponse:
         user = await get_user_with_positions(self.session, user_id)
@@ -71,7 +73,8 @@ class ProfileService:
             phone=user.phone,
             pan=user.pan,
             city=user.city,
-            photo=user.photo,
+            photo=self.avatar_storage.signed_url(user.photo),
+            photo_key=user.photo,
             risk_level=user.risk_level,
             cash=float(user.cash_balance),
             holdings=holdings,
@@ -156,7 +159,6 @@ class ProfileService:
         user.phone = validated.phone.strip()
         user.pan = validated.pan
         user.city = validated.city.strip()
-        user.photo = validated.photo
         user.risk_level = validated.risk_level
         await self.session.commit()
         await self.session.refresh(user)
@@ -187,8 +189,18 @@ class ProfileService:
         await self.session.commit()
         return self._create_profile_response(user)
 
-    @staticmethod
-    def _profile_response(user: User) -> ProfileResponse:
+    async def update_profile_photo(self, user_id: str, file) -> ProfileResponse:
+        user = await get_user_with_positions(self.session, user_id)
+        if user is None:
+            raise ProfileServiceError(f"User {user_id} not found")
+
+        object_key = await self.avatar_storage.upload_avatar(user_id=user.id, file=file)
+        user.photo = object_key
+        await self.session.commit()
+        await self.session.refresh(user)
+        return self._profile_response(user)
+
+    def _profile_response(self, user: User) -> ProfileResponse:
         return ProfileResponse(
             user_id=user.id,
             name=user.name,
@@ -196,12 +208,12 @@ class ProfileService:
             phone=user.phone,
             pan=user.pan,
             city=user.city,
-            photo=user.photo,
+            photo=self.avatar_storage.signed_url(user.photo),
+            photo_key=user.photo,
             risk_level=user.risk_level,
         )
 
-    @staticmethod
-    def _create_profile_response(user: User) -> CreateProfileResponse:
+    def _create_profile_response(self, user: User) -> CreateProfileResponse:
         return CreateProfileResponse(
             user_id=user.id,
             name=user.name,
@@ -209,6 +221,7 @@ class ProfileService:
             phone=user.phone,
             pan=user.pan,
             city=user.city,
-            photo=user.photo,
+            photo=self.avatar_storage.signed_url(user.photo),
+            photo_key=user.photo,
             risk_level=user.risk_level,
         )

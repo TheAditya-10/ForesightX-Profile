@@ -20,6 +20,7 @@ class CreateProfileResponse(BaseModel):
     pan: str | None = None
     city: str | None = None
     photo: str | None = None
+    photo_key: str | None = None
     risk_level: str
 
 
@@ -31,6 +32,7 @@ class ProfileResponse(BaseModel):
     pan: str | None = None
     city: str | None = None
     photo: str | None = None
+    photo_key: str | None = None
     risk_level: str
 
 
@@ -66,6 +68,7 @@ class PortfolioResponse(BaseModel):
     pan: str | None = None
     city: str | None = None
     photo: str | None = None
+    photo_key: str | None = None
     risk_level: str
     cash: float = Field(..., ge=0)
     holdings: list[PortfolioPositionResponse]
