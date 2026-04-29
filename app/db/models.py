@@ -12,6 +12,11 @@ class User(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    pan: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    photo: Mapped[str | None] = mapped_column(String(4096), nullable=True)
     risk_level: Mapped[str] = mapped_column(String(20), nullable=False)
     # Cash is persisted on the user record because orchestration risk checks need liquid balance quickly.
     cash_balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("10000.00"))

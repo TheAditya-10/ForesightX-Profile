@@ -6,7 +6,9 @@ from app.schemas.profile import (
     CreateProfileRequest,
     CreateProfileResponse,
     PortfolioResponse,
+    ProfileResponse,
     RiskResponse,
+    UpdateProfileRequest,
     UpdatePortfolioRequest,
 )
 from app.services.market_client import MarketDataClient
@@ -58,6 +60,23 @@ async def get_risk(
     controller: ProfileController = Depends(get_controller),
 ) -> RiskResponse:
     return await controller.get_risk(user_id=user_id)
+
+
+@router.get("/profiles/{user_id}", response_model=ProfileResponse)
+async def get_profile(
+    user_id: str,
+    controller: ProfileController = Depends(get_controller),
+) -> ProfileResponse:
+    return await controller.get_profile(user_id=user_id)
+
+
+@router.patch("/profiles/{user_id}", response_model=ProfileResponse)
+async def update_profile(
+    user_id: str,
+    payload: UpdateProfileRequest,
+    controller: ProfileController = Depends(get_controller),
+) -> ProfileResponse:
+    return await controller.update_profile(user_id=user_id, payload=payload)
 
 
 @router.post("/profiles", response_model=CreateProfileResponse, status_code=201)

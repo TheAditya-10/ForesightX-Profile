@@ -12,7 +12,9 @@ from app.schemas.profile import (
     CreateProfileResponse,
     PortfolioPositionResponse,
     PortfolioResponse,
+    ProfileResponse,
     RiskResponse,
+    UpdateProfileRequest,
     UpdatePortfolioRequest,
 )
 from app.services.market_client import MarketDataClient
@@ -65,6 +67,11 @@ class ProfileService:
         return PortfolioResponse(
             user_id=user.id,
             name=user.name,
+            email=user.email,
+            phone=user.phone,
+            pan=user.pan,
+            city=user.city,
+            photo=user.photo,
             risk_level=user.risk_level,
             cash=float(user.cash_balance),
             holdings=holdings,
@@ -128,18 +135,80 @@ class ProfileService:
             raise ProfileServiceError(f"User {user_id} not found")
         return RiskResponse(user_id=user.id, risk_level=user.risk_level)
 
+    async def get_profile(self, user_id: str) -> ProfileResponse:
+        user = await get_user_with_positions(self.session, user_id)
+        if user is None:
+            raise ProfileServiceError(f"User {user_id} not found")
+        return self._profile_response(user)
+
+    async def update_profile(self, user_id: str, payload: UpdateProfileRequest) -> ProfileResponse:
+        try:
+            validated = UpdateProfileRequest.model_validate(payload.model_dump())
+        except ValidationError as exc:
+            raise ProfileServiceError(str(exc)) from exc
+
+        user = await get_user_with_positions(self.session, user_id)
+        if user is None:
+            raise ProfileServiceError(f"User {user_id} not found")
+
+        user.name = validated.name.strip()
+        user.email = str(validated.email).lower()
+        user.phone = validated.phone.strip()
+        user.pan = validated.pan
+        user.city = validated.city.strip()
+        user.photo = validated.photo
+        user.risk_level = validated.risk_level
+        await self.session.commit()
+        await self.session.refresh(user)
+        return self._profile_response(user)
+
     async def create_profile(self, payload: CreateProfileRequest) -> CreateProfileResponse:
         existing = await get_user_with_positions(self.session, payload.user_id)
         if existing is not None:
-            return CreateProfileResponse(user_id=existing.id, name=existing.name, risk_level=existing.risk_level)
+            return self._create_profile_response(existing)
 
-        display_name = payload.email.split("@", maxsplit=1)[0].replace(".", " ").replace("_", " ").title() or "User"
+        display_name = (
+            payload.name.strip()
+            if payload.name
+            else payload.email.split("@", maxsplit=1)[0].replace(".", " ").replace("_", " ").title() or "User"
+        )
         user = User(
             id=payload.user_id,
             name=display_name,
-            risk_level="medium",
+            email=str(payload.email).lower(),
+            phone=payload.phone.strip() if payload.phone else None,
+            pan=payload.pan.strip().upper() if payload.pan else None,
+            city=payload.city.strip() if payload.city else None,
+            photo=payload.photo,
+            risk_level=payload.risk_level or "medium",
             cash_balance=Decimal("10000.00"),
         )
         self.session.add(user)
         await self.session.commit()
-        return CreateProfileResponse(user_id=user.id, name=user.name, risk_level=user.risk_level)
+        return self._create_profile_response(user)
+
+    @staticmethod
+    def _profile_response(user: User) -> ProfileResponse:
+        return ProfileResponse(
+            user_id=user.id,
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            pan=user.pan,
+            city=user.city,
+            photo=user.photo,
+            risk_level=user.risk_level,
+        )
+
+    @staticmethod
+    def _create_profile_response(user: User) -> CreateProfileResponse:
+        return CreateProfileResponse(
+            user_id=user.id,
+            name=user.name,
+            email=user.email,
+            phone=user.phone,
+            pan=user.pan,
+            city=user.city,
+            photo=user.photo,
+            risk_level=user.risk_level,
+        )
