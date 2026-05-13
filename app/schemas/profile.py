@@ -88,12 +88,19 @@ class PortfolioTransactionResponse(BaseModel):
 class UpdatePortfolioRequest(BaseModel):
     user_id: str = Field(..., min_length=1, max_length=64)
     ticker: str = Field(..., min_length=1, max_length=20)
-    quantity: int = Field(..., ne=0)
+    quantity: int = Field(...)
 
     @field_validator("ticker")
     @classmethod
     def normalize_ticker(cls, value: str) -> str:
         return value.strip().upper()
+
+    @field_validator("quantity")
+    @classmethod
+    def validate_quantity_non_zero(cls, value: int) -> int:
+        if value == 0:
+            raise ValueError("quantity must be non-zero")
+        return value
 
 
 class RiskResponse(BaseModel):
