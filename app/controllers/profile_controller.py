@@ -24,10 +24,20 @@ class ProfileController:
             code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_422_UNPROCESSABLE_ENTITY
             raise HTTPException(status_code=code, detail=str(exc)) from exc
 
+    async def get_portfolio_history(self, user_id: str):
+        try:
+            return await self.service.get_portfolio_history(user_id)
+        except ProfileServiceError as exc:
+            code = status.HTTP_404_NOT_FOUND if "not found" in str(exc).lower() else status.HTTP_422_UNPROCESSABLE_ENTITY
+            raise HTTPException(status_code=code, detail=str(exc)) from exc
+
     async def update_portfolio(self, payload: UpdatePortfolioRequest) -> PortfolioResponse:
         try:
             return await self.service.update_portfolio(payload)
         except ProfileServiceError as exc:
+            msg = str(exc).lower()
+            if "market data unavailable" in msg or "unable to value trade" in msg:
+                raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
     async def get_risk(self, user_id: str) -> RiskResponse:

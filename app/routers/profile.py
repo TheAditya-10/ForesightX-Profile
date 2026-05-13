@@ -11,6 +11,7 @@ from app.schemas.profile import (
     UpdateProfileRequest,
     UpdatePortfolioRequest,
 )
+from app.schemas.profile import PortfolioTransactionResponse
 from app.services.market_client import MarketDataClient
 from app.services.profile_service import ProfileService
 
@@ -60,6 +61,14 @@ async def get_risk(
     controller: ProfileController = Depends(get_controller),
 ) -> RiskResponse:
     return await controller.get_risk(user_id=user_id)
+
+
+@router.get("/portfolio/{user_id}/history", response_model=list[PortfolioTransactionResponse])
+async def get_portfolio_history(
+    user_id: str,
+    controller: ProfileController = Depends(get_controller),
+) -> list[PortfolioTransactionResponse]:
+    return await controller.get_portfolio_history(user_id=user_id)
 
 
 @router.get("/profiles/{user_id}", response_model=ProfileResponse)

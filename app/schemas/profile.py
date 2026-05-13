@@ -75,6 +75,16 @@ class PortfolioResponse(BaseModel):
     total_value: float = Field(..., ge=0)
 
 
+class PortfolioTransactionResponse(BaseModel):
+    id: int
+    ticker: str
+    action: str
+    quantity: int
+    price: float
+    realized_pnl: float | None = None
+    created_at: str
+
+
 class UpdatePortfolioRequest(BaseModel):
     user_id: str = Field(..., min_length=1, max_length=64)
     ticker: str = Field(..., min_length=1, max_length=20)
