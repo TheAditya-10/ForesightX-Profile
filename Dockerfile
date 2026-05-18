@@ -1,19 +1,31 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 
-WORKDIR /app/ForesightX-profile
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY ForesightX-profile/requirements.txt ./requirements.txt
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-COPY ForesightX-profile /app/ForesightX-profile
+FROM python:3.12-slim AS runner
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+WORKDIR /app/ForesightX-Profile
+
+COPY --from=builder /install /usr/local
+COPY ForesightX-Profile /app/ForesightX-Profile 
 
 RUN useradd --create-home --shell /usr/sbin/nologin appuser && \
-    chown -R appuser:appuser /app/ForesightX-profile
+    chown -R appuser:appuser /app/ForesightX-Profile
 USER appuser
 
 EXPOSE 8002
