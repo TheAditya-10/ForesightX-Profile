@@ -228,6 +228,35 @@ class ProfileService:
     async def create_profile(self, payload: CreateProfileRequest) -> CreateProfileResponse:
         existing = await get_user_with_positions(self.session, payload.user_id)
         if existing is not None:
+            default_name = (
+                payload.email.split("@", maxsplit=1)[0].replace(".", " ").replace("_", " ").title() or "User"
+            )
+            updated = False
+            if payload.email and not existing.email:
+                existing.email = str(payload.email).lower()
+                updated = True
+            if payload.name and (not existing.name.strip() or existing.name in {"User", default_name}):
+                existing.name = payload.name.strip()
+                updated = True
+            if payload.phone and not existing.phone:
+                existing.phone = payload.phone.strip()
+                updated = True
+            if payload.pan and not existing.pan:
+                existing.pan = payload.pan.strip().upper()
+                updated = True
+            if payload.city and not existing.city:
+                existing.city = payload.city.strip()
+                updated = True
+            if payload.photo and not existing.photo:
+                existing.photo = payload.photo
+                updated = True
+            if payload.risk_level and not existing.risk_level:
+                existing.risk_level = payload.risk_level
+                updated = True
+
+            if updated:
+                await self.session.commit()
+                await self.session.refresh(existing)
             return self._create_profile_response(existing)
 
         display_name = (
